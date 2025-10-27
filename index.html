@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Chat Room</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="min-h-screen bg-gray-100 flex items-center justify-center">
+
+  <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-2">Private Chat Room</h2>
+    <p class="text-center text-gray-500 mb-6">Sign in or create an account to start chatting</p>
+
+    <!-- Tabs -->
+    <div class="flex bg-gray-100 rounded-lg mb-6">
+      <button id="signInTab" class="w-1/2 py-2 font-semibold text-gray-800 bg-gray-200 rounded-lg">Sign In</button>
+      <button id="signUpTab" class="w-1/2 py-2 font-semibold text-gray-600 hover:text-gray-800">Sign Up</button>
+    </div>
+
+    <!-- Sign In Form -->
+    <div id="signInForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+        <input id="log_user" placeholder="name"
+               class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input id="log_pass" type="password" placeholder="••••••••"
+               class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+
+      <button onclick="login()"
+              class="w-full bg-gray-700 text-white font-semibold py-2 rounded-lg transition">
+        Sign In
+      </button>
+    </div>
+
+    <!-- Sign Up Form -->
+    <div id="signUpForm" class="hidden space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+        <input id="reg_user" placeholder="name"
+               class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input id="reg_email" type="email" placeholder="you@example.com"
+               class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input id="reg_pass" type="password" placeholder="••••••••"
+               class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+
+      <button onclick="register()"
+              class="w-full bg-gray-600  text-white font-semibold py-2 rounded-lg transition">
+        Sign Up
+      </button>
+    </div>
+
+    <!-- OR divider -->
+    <div class="flex items-center justify-center my-4">
+      <span class="text-gray-400 text-sm">OR</span>
+    </div>
+
+    <!-- Google Login -->
+    <a href="/auth/google" class="block">
+      <button class="w-full bg-gray-600 text-white font-semibold py-2 flex items-center justify-center gap-2 transition">
+        <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google" class="w-5 h-5">
+        Continue with Google
+      </button>
+    </a>
+  </div>
+
+  <script>
+    // Check if already logged in
+    const currentUser = localStorage.getItem("currentUser");
+    if (currentUser) {
+      window.location.href = "/chat.html";
+    }
+
+    const socket = io();
+
+    // Toggle forms
+    const signInTab = document.getElementById("signInTab");
+    const signUpTab = document.getElementById("signUpTab");
+    const signInForm = document.getElementById("signInForm");
+    const signUpForm = document.getElementById("signUpForm");
+
+    signInTab.addEventListener("click", () => {
+      signInForm.classList.remove("hidden");
+      signUpForm.classList.add("hidden");
+      signInTab.classList.add("bg-gray-200", "text-gray-800");
+      signUpTab.classList.remove("bg-gray-200", "text-gray-800");
+      signUpTab.classList.add("text-gray-600");
+    });
+
+    signUpTab.addEventListener("click", () => {
+      signUpForm.classList.remove("hidden");
+      signInForm.classList.add("hidden");
+      signUpTab.classList.add("bg-gray-200", "text-gray-800");
+      signInTab.classList.remove("bg-gray-200", "text-gray-800");
+      signInTab.classList.add("text-gray-600");
+    });
+
+    // Register user
+    function register() {
+      const username = document.getElementById("reg_user").value;
+      const email = document.getElementById("reg_email").value;
+      const password = document.getElementById("reg_pass").value;
+
+      if (!username || !email || !password) return alert("Please fill all fields");
+
+      fetch("/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, email, password })
+      })
+      .then(r => r.text())
+      .then(alert)
+      .catch(console.error);
+    }
+
+    // Login user
+    function login() {
+      const username = document.getElementById("log_user").value;
+      const password = document.getElementById("log_pass").value;
+
+      if (!username || !password) return alert("Please fill all fields");
+
+      fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      })
+      .then(r => r.text())
+      .then(msg => {
+        alert(msg);
+        if (msg.includes("successful")) {
+          localStorage.setItem("currentUser", username);
+          window.location.href = "/chat.html";
+        }
+      })
+      .catch(console.error);
+    }
+
+    // Handle redirect from Google login
+    const params = new URLSearchParams(window.location.search);
+    const googleUser = params.get("user");
+    if (googleUser) {
+      localStorage.setItem("currentUser", googleUser);
+      window.location.href = "/chat.html";
+    }
+  </script>
+
+</body>
+</html>
